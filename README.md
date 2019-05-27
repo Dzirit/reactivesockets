@@ -1,7 +1,8 @@
 reactivesockets
 ===============
-Fixed reconnect function.
-Built for .Net Core
+- Fixed reconnect function.
+- Built for .Net Core.
+
 Implements a very easy to use sockets API based on IObservable. It allows very simple protocol implementations such as:
 
         var client = new ReactiveClient("127.0.0.1", 1055);
