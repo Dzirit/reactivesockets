@@ -5,18 +5,18 @@ namespace ReactiveSockets
 {
     using System.Net.Sockets;
     using System.Threading.Tasks;
-    using Diagnostics;
+    
 
     /// <summary>
     /// Implements the <see cref="IReactiveClient"/> over TCP.
     /// </summary>
     public class ReactiveClient : ReactiveSocket, IReactiveClient
     {
-        private static readonly ITracer tracer = Tracer.Get<ReactiveClient>();
+        
         private string hostname;
         private int port;
         private readonly Func<Stream, Stream> streamTransform;
-        private Stream stream;
+        private Stream _stream;
         private readonly object getStreamLock = new object();
 
         /// <summary>
@@ -29,7 +29,7 @@ namespace ReactiveSockets
         /// The default value is <see cref="ReactiveSocket.MaximumBufferSize"/>
         /// </param>
         public ReactiveClient(string hostname, int port, int maximumBufferSize = MaximumBufferSize) 
-            : this(hostname, port, stream => stream, maximumBufferSize) { }
+            : this(hostname, port, _stream => _stream, maximumBufferSize) { }
 
         /// <summary>
         /// Initializes the reactive client using a custom stream transform.
@@ -63,7 +63,7 @@ namespace ReactiveSockets
             this.hostname = hostname;
             this.port = port;
             this.streamTransform = streamTransform;
-            tracer.ReactiveClientCreated(hostname, port);
+            
         }
 
         /// <summary>
@@ -71,17 +71,19 @@ namespace ReactiveSockets
         /// </summary>
         public Task ConnectAsync()
         {
-            var client = new TcpClient();
-            return Task.Factory
-                .FromAsync<string, int>(client.BeginConnect, client.EndConnect, hostname, port, null)
-                .ContinueWith(_ => Connect(client), TaskContinuationOptions.OnlyOnRanToCompletion);
+            var tcpClient = new TcpClient();
+            return tcpClient.ConnectAsync(hostname, port)
+                .ContinueWith(t => Connect(tcpClient), TaskContinuationOptions.OnlyOnRanToCompletion);
         }
 
         /// <summary>
         /// Disconnects the underlying TCP socket.
         /// </summary>
-        public new void Disconnect()
+        public override void Disconnect()
         {
+            _stream.Close();
+            _stream.Dispose();
+            _stream = null;
             base.Disconnect();
         }
 
@@ -93,8 +95,8 @@ namespace ReactiveSockets
         {
             lock (getStreamLock)
             {
-                return stream ??
-                       (stream = (streamTransform == null ? base.GetStream() : streamTransform(base.GetStream())));
+                return _stream ??
+                       (_stream = (streamTransform == null ? base.GetStream() : streamTransform(base.GetStream())));
             }
         }
     }

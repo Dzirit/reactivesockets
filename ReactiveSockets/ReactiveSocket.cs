@@ -9,11 +9,11 @@
     using System.Reactive.Subjects;
     using System.Threading;
     using System.Threading.Tasks;
-    using ReactiveSockets.Properties;
+    
     using System.IO;
     using System.Reactive;
     using System.Reactive.Threading.Tasks;
-    using Diagnostics;
+    
 
     /// <summary>
     /// Implements the reactive socket base class, which is used 
@@ -22,10 +22,10 @@
     /// </summary>
     public class ReactiveSocket : IReactiveSocket, IDisposable
     {
-        private static readonly ITracer tracer = Tracer.Get<ReactiveSocket>();
+       
 
         private bool disposed;
-        private TcpClient client;
+        private TcpClient _tcpClient;
         // This allows us to write to the underlying socket in a 
         // single-threaded fashion.
         private object syncLock = new object();
@@ -59,11 +59,11 @@
         /// Initializes the socket with a previously accepted TCP 
         /// client connection. This overload is used by the <see cref="ReactiveListener"/>.
         /// </summary>
-        internal ReactiveSocket(TcpClient client)
+        internal ReactiveSocket(TcpClient tcpClient)
             : this(MaximumBufferSize)
         {
-            tracer.ReactiveSocketCreated();
-            Connect(client);
+            
+            Connect(tcpClient);
         }
 
         /// <summary>
@@ -98,7 +98,7 @@
         /// <summary>
         /// Gets whether the socket is connected.
         /// </summary>
-        public bool IsConnected { get { return client != null && client.Connected; } }
+        public bool IsConnected { get { return _tcpClient != null && _tcpClient.Connected; } }
 
         /// <summary>
         /// Observable bytes that are being received by this endpoint. Note that 
@@ -132,9 +132,9 @@
             {
                 this.receiveBufferSize = value;
 
-                if(this.client != null)
+                if(this._tcpClient != null)
                 {
-                    this.client.ReceiveBufferSize = value;
+                    this._tcpClient.ReceiveBufferSize = value;
                 }
             }
         }
@@ -143,47 +143,47 @@
         /// Gets the TcpClient stream to use. 
         /// </summary>
         /// <remarks>Virtual so it can be overridden to implement SSL</remarks>
-        protected virtual System.IO.Stream GetStream()
+        protected virtual Stream GetStream()
         {
-            return client.GetStream();
+            return _tcpClient.GetStream();
         }
 
         /// <summary>
         /// Connects the reactive socket using the given TCP client.
         /// </summary>
-        protected internal void Connect(TcpClient client)
+        protected internal void Connect(TcpClient tcp)
         {
-            if (client == null)
-                throw new ArgumentNullException("client");
+            if (tcp == null)
+                throw new ArgumentNullException("tcp");
 
             if (disposed)
             {
-                tracer.ReactiveSocketReconnectDisposed();
+               
                 throw new ObjectDisposedException(this.ToString());
             }
 
-            if (!client.Connected)
+            if (!tcp.Connected)
             {
-                tracer.ReactiveSocketReceivedDisconnectedTcpClient();
+               
                 throw new InvalidOperationException("Client must be connected");
             }
 
             // We're connecting an already connected client.
-            if (this.client == client && client.Connected)
+            if (_tcpClient == tcp && tcp.Connected)
             {
-                tracer.ReactiveSocketAlreadyConnected();
+                
                 return;
             }
 
             // We're switching to a new client?
-            if (this.client != null && this.client != client)
+            if (_tcpClient != null && _tcpClient != tcp)
             {
-                tracer.ReactiveSocketSwitchingUnderlyingClient();
+                
                 Disconnect();
             }
 
-            this.client = client;
-            client.ReceiveBufferSize = receiveBufferSize;
+            this._tcpClient = tcp;
+            tcp.ReceiveBufferSize = receiveBufferSize;
 
             // Cancel possibly outgoing async work (i.e. reads).
             if (readSubscription != null)
@@ -196,16 +196,16 @@
 
             Connected(this, EventArgs.Empty);
 
-            tracer.ReactiveSocketConnected();
+            
         }
 
         /// <summary>
         /// Disconnects the reactive socket. Throws if not currently connected.
         /// </summary>
-        protected void Disconnect()
+        public virtual void Disconnect()
         {
-            if (!IsConnected)
-                throw new InvalidOperationException(Strings.TcpClientSocket.DisconnectingNotConnected);
+            //if (!IsConnected)
+            //    throw new InvalidOperationException(Strings.TcpClientSocket.DisconnectingNotConnected);
 
             Disconnect(false);
         }
@@ -228,11 +228,11 @@
 
             if (IsConnected)
             {
-                client.Close();
-                tracer.ReactiveSocketDisconnected();
+                _tcpClient.Close();
+                
             }
 
-            client = null;
+            _tcpClient = null;
 
             Disconnected(this, EventArgs.Empty);
         }
@@ -252,7 +252,7 @@
             sender.OnCompleted();
             receiverTermination.OnNext(Unit.Default);
 
-            tracer.ReactiveSocketDisposed();
+            
 
             Disposed(this, EventArgs.Empty);
         }
@@ -263,7 +263,7 @@
             this.readSubscription = Observable.Defer(() => 
                 {
                     var buffer = new byte[this.ReceiveBufferSize];
-                    return Observable.FromAsyncPattern<byte[], int, int, int>(stream.BeginRead, stream.EndRead)(buffer, 0, buffer.Length)
+                    return stream.ReadAsync(buffer, 0, buffer.Length).ToObservable()
                         .Select(x => buffer.Take(x).ToArray());
                 })
                 .Repeat()
@@ -271,7 +271,7 @@
                 .SelectMany(x => x)
                 .Subscribe(x => this.received.Add(x), ex =>
                 {
-                    tracer.ReactiveSocketReadFailed(ex);
+                    
                     Disconnect(false);
                 }, () => Disconnect(false));
         }
@@ -292,13 +292,13 @@
         {
             if (disposed)
             {
-                tracer.ReactiveSocketSendDisposed();
+                
                 throw new ObjectDisposedException(this.ToString());
             }
 
             if (!IsConnected)
             {
-                tracer.ReactiveSocketSendDisconnected();
+                
                 throw new InvalidOperationException("Not connected");
             }
             
@@ -319,43 +319,43 @@
         /// <summary>See <see cref="T:System.Net.Sockets.Socket.GetSocketOption(SocketOptionLevel, SocketOptionName)" />.</summary>
         public object GetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName)
         {
-            return client.Client.GetSocketOption(optionLevel, optionName);
+            return _tcpClient.Client.GetSocketOption(optionLevel, optionName);
         }
 
         /// <summary>See <see cref="T:System.Net.Sockets.Socket.GetSocketOption(SocketOptionLevel, SocketOptionName, byte[])" />.</summary>
         public void GetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, byte[] optionValue)
         {
-            client.Client.GetSocketOption(optionLevel, optionName, optionValue);
+            _tcpClient.Client.GetSocketOption(optionLevel, optionName, optionValue);
         }
 
         /// <summary>See <see cref="T:System.Net.Sockets.Socket.GetSocketOption(SocketOptionLevel, SocketOptionName, int)" />.</summary>
         public byte[] GetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionLength)
         {
-            return client.Client.GetSocketOption(optionLevel, optionName, optionLength);
+            return _tcpClient.Client.GetSocketOption(optionLevel, optionName, optionLength);
         }
 
         /// <summary>See <see cref="T:System.Net.Sockets.Socket.SetSocketOption(SocketOptionLevel, SocketOptionName, bool)" />.</summary>
         public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue)
         {
-            client.Client.SetSocketOption(optionLevel, optionName, optionValue);
+            _tcpClient.Client.SetSocketOption(optionLevel, optionName, optionValue);
         }
 
         /// <summary>See <see cref="T:System.Net.Sockets.Socket.SetSocketOption(SocketOptionLevel, SocketOptionName, byte[])" />.</summary>
         public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, byte[] optionValue)
         {
-            client.Client.SetSocketOption(optionLevel, optionName, optionValue);
+            _tcpClient.Client.SetSocketOption(optionLevel, optionName, optionValue);
         }
 
         /// <summary>See <see cref="T:System.Net.Sockets.Socket.SetSocketOption(SocketOptionLevel, SocketOptionName, int)" />.</summary>
         public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionValue)
         {
-            client.Client.SetSocketOption(optionLevel, optionName, optionValue);
+            _tcpClient.Client.SetSocketOption(optionLevel, optionName, optionValue);
         }
 
         /// <summary>See <see cref="T:System.Net.Sockets.Socket.SetSocketOption(SocketOptionLevel, SocketOptionName, object)" />.</summary>
         public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, object optionValue)
         {
-            client.Client.SetSocketOption(optionLevel, optionName, optionValue);
+            _tcpClient.Client.SetSocketOption(optionLevel, optionName, optionValue);
         }
 
         #endregion
