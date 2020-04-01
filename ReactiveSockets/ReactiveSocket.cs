@@ -9,7 +9,6 @@
     using System.Reactive.Subjects;
     using System.Threading;
     using System.Threading.Tasks;
-    
     using System.IO;
     using System.Reactive;
     using System.Reactive.Threading.Tasks;
@@ -17,8 +16,7 @@
 
     /// <summary>
     /// Implements the reactive socket base class, which is used 
-    /// on the <see cref="IReactiveListener"/> for accepted connections, 
-    /// as well as a base class for the <see cref="ReactiveClient"/>.
+     /// as well as a base class for the <see cref="ReactiveClient"/>.
     /// </summary>
     public class ReactiveSocket : IReactiveSocket, IDisposable
     {
@@ -57,7 +55,6 @@
 
         /// <summary>
         /// Initializes the socket with a previously accepted TCP 
-        /// client connection. This overload is used by the <see cref="ReactiveListener"/>.
         /// </summary>
         internal ReactiveSocket(TcpClient tcpClient)
             : this(MaximumBufferSize)

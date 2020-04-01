@@ -1,17 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\ReactiveSockets\IReactiveClient.cs" Link="IReactiveClient.cs" />
-    <Compile Include="..\ReactiveSockets\IReactiveListener.cs" Link="IReactiveListener.cs" />
     <Compile Include="..\ReactiveSockets\IReactiveSocket.cs" Link="IReactiveSocket.cs" />
     <Compile Include="..\ReactiveSockets\ISocket.cs" Link="ISocket.cs" />
-    <Compile Include="..\ReactiveSockets\ISocketExtensions.cs" Link="ISocketExtensions.cs" />
     <Compile Include="..\ReactiveSockets\ReactiveClient.cs" Link="ReactiveClient.cs" />
-    <Compile Include="..\ReactiveSockets\ReactiveListener.cs" Link="ReactiveListener.cs" />
-    <Compile Include="..\ReactiveSockets\ReactiveListenerSettings.cs" Link="ReactiveListenerSettings.cs" />
     <Compile Include="..\ReactiveSockets\ReactiveSocket.cs" Link="ReactiveSocket.cs" />
 
   </ItemGroup>
